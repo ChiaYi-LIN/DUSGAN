@@ -1,17 +1,17 @@
 // Not total the same as SRGAN in <Photo-Realistic Single Image Super-Resolution Using a Generative Adversarial Network>
 {
-  "name": "ESRGAN_LS_TwoPatchDisc_9x9GaussFilter_ExpQA" //  please remove "debug_" during training
+  "name": "ESRGAN_LS_TwoPatchDisc_9x9GaussFilter_ExpQA_reproduce" //  please remove "debug_" during training
   , "use_tb_logger": true
   , "model":"ntire_ex"
   , "scale": 4
-  , "gpu_ids": [0]
+  , "gpu_ids": [0, 1]
 
   , "datasets": {
     "train": {
       "name": "NTIRE"
       , "mode": "LRHR"
-      , "dataroot_HR": "/home/user1/Documents/Kalpesh/NTIRE2_Code/NTIRE_Data/HR"
-      , "dataroot_LR": "/home/user1/Documents/Kalpesh/NTIRE2_Code/NTIRE_Data/LR"
+      , "dataroot_HR": "../data/NTIRE20_t1/train_HR"
+      , "dataroot_LR": "../data/NTIRE20_t1/train_LR"
       , "subset_file": null
       , "use_shuffle": true
       , "n_workers": 8
@@ -23,13 +23,13 @@
     , "val": {
       "name": "val_NTIRE"
       , "mode": "LRHR"
-      , "dataroot_HR": "/home/user1/Documents/Validation_HR/A"
-      , "dataroot_LR": "/home/user1/Documents/Validation_LR/A"
+      , "dataroot_HR": "../data/NTIRE20_t1/validation_HR"
+      , "dataroot_LR": "../data/NTIRE20_t1/validation_LR"
     }
   }
 
   , "path": {
-    "root": "/home/user1/Documents/Kalpesh/NTIRE2_Code/"
+    "root": "."
     //, "resume_state": "/home/user1/Documents/Kalpesh/NTIRE2_Code/experiments/LSGAN_TwoPatchDisc_ExpQA/training_state/181000.state"
     , "pretrain_model_G": null
   }
@@ -38,8 +38,8 @@
     "which_model_G": "SRGAN_Gen" // RRDB_net | sr_resnet | SRGANGen
     , "norm_type": null
     , "mode": "CNA"
-    , "nf": 32
-    , "nb": 23
+    , "nf": 64
+    , "nb": 20
     , "in_nc": 3
     , "out_nc": 3
   }
@@ -60,7 +60,7 @@
     , "weight_decay_D": 0
     , "beta1_D": 0.9
     , "lr_scheme": "MultiStepLR"
-    , "lr_steps": [50000, 100000, 150000, 200000,250000,300000]
+    , "lr_steps": [50000, 100000, 150000, 200000, 250000, 300000]
     , "lr_gamma": 0.5
 
     , "pixel_criterion": "l1"
@@ -72,12 +72,13 @@
     , "QA_weight": 1e-3
 
     , "manual_seed": 0
-    , "niter": 70000
-    , "val_freq": 1000
+    , "niter": 300000
+    , "val_freq": 5000
   }
 
   , "logger": {
     "print_freq": 100
-    , "save_checkpoint_freq": 1000
+    , "save_checkpoint_freq": 5000
+    , "max_save_num" : 2
   }
 }
