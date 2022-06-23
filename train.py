@@ -4,6 +4,7 @@ import math
 import argparse
 import time
 import random
+from datetime import datetime
 import numpy as np
 from collections import OrderedDict
 import logging
@@ -46,7 +47,7 @@ def main():
     # tensorboard logger
     if opt['use_tb_logger'] and 'debug' not in opt['name']:
         from tensorboardX import SummaryWriter
-        tb_logger = SummaryWriter(logdir='/home/user1/Documents/Kalpesh/NTIRE2_Code/tb_logger/' + opt['name'])
+        tb_logger = SummaryWriter(logdir='./tb_logger/' + opt['name'] + '/' + datetime.now().strftime('%y%m%d-%H%M%S'))
 
     # random seed
     seed = opt['train']['manual_seed']
@@ -100,12 +101,14 @@ def main():
             current_step += 1
             if current_step > total_iters:
                 break
-            # update learning rate
-            model.update_learning_rate()
+            
 
             # training
             model.feed_data(train_data)
             model.optimize_parameters(current_step)
+
+            # update learning rate
+            model.update_learning_rate()
 
             # log
             if current_step % opt['logger']['print_freq'] == 0:
@@ -122,13 +125,18 @@ def main():
             # validation
             if current_step % opt['train']['val_freq'] == 0:
                 avg_psnr = 0.0
+                avg_ssim = 0.0
                 lp = 0.0
                 idx = 0
+
+                img_dir = os.path.join(opt['path']['val_images'], str(current_step))
+                util.mkdir(img_dir)
+                logger_val = logging.getLogger('val')  # validation logger
+                logger_val.info('# Validation # <epoch:{:3d}, iter:{:8,d}>'.format(epoch, current_step))
+
                 for val_data in val_loader:
                     idx += 1
                     img_name = os.path.splitext(os.path.basename(val_data['LR_path'][0]))[0]
-                    img_dir = os.path.join(opt['path']['val_images'], img_name)
-                    util.mkdir(img_dir)
 
                     model.feed_data(val_data)
                     model.test()
@@ -136,7 +144,8 @@ def main():
                     visuals = model.get_current_visuals()
                     visuals['SR'] = visuals['SR'][0:visuals['HR'].size(0),0:visuals['HR'].size(1),0:visuals['HR'].size(2)]
                     score = lpips_mode.forward(visuals['HR']*2-1,visuals['SR']*2-1)
-                    lp = lp + score.item()
+                    lp_value = score.item()
+                    lp += lp_value
                     sr_img = util.tensor2img(visuals['SR'])  # uint8
                     gt_img = util.tensor2img(visuals['HR'])  # uint8
                     h,w,c = gt_img.shape
@@ -158,16 +167,23 @@ def main():
                     sr_img = sr_img / 255.
                     cropped_sr_img = sr_img[crop_size:-crop_size, crop_size:-crop_size, :]
                     cropped_gt_img = gt_img[crop_size:-crop_size, crop_size:-crop_size, :]
-                    avg_psnr += util.calculate_psnr(cropped_sr_img * 255, cropped_gt_img * 255)
+                    psnr_value = util.calculate_psnr(cropped_sr_img * 255, cropped_gt_img * 255)
+                    avg_psnr += psnr_value
+                    ssim_value = util.ssim(cropped_sr_img * 255, cropped_gt_img * 255)
+                    avg_ssim += ssim_value
+
+                    logger_val.info('<image:{}> PSNR: {:.4e}, SSIM: {:.4e}, LPIPS: {:.4e}'.format(
+                        img_name, psnr_value, ssim_value, lp_value))
 
                 avg_psnr = avg_psnr / idx
-                avg_lpips = lp/idx
+                avg_ssim = avg_ssim / idx
+                avg_lpips = lp / idx
 
                 # log
-                logger.info('# Validation # PSNR: {:.4e}, LPIPS: {:.4e}'.format(avg_psnr,avg_lpips))
+                logger.info('# Validation # PSNR: {:.4e}, SSIM: {:.4e}, LPIPS: {:.4e}'.format(avg_psnr, avg_ssim, avg_lpips))
                 logger_val = logging.getLogger('val')  # validation logger
-                logger_val.info('<epoch:{:3d}, iter:{:8,d}> psnr: {:.4e}, LPIPS: {:.4e}'.format(
-                    epoch, current_step, avg_psnr,avg_lpips))
+                logger_val.info('# Validation # <epoch:{:3d}, iter:{:8,d}> PSNR: {:.4e}, SSIM: {:.4e}, LPIPS: {:.4e}'.format(
+                    epoch, current_step, avg_psnr, avg_ssim, avg_lpips))
                 #logger.info('# Validation # PSNR: {:.4e}'.format(avg_psnr))
                 #logger_val.info('<epoch:{:3d}, iter:{:8,d}> psnr: {:.4e}'.format(
                     #epoch, current_step, avg_psnr))
@@ -180,6 +196,20 @@ def main():
                 logger.info('Saving models and training states.')
                 model.save(current_step)
                 model.save_training_state(epoch, current_step)
+
+                delete_step = current_step - opt['logger']['save_checkpoint_freq'] * opt['logger']['max_save_num']
+                delete_G_path = os.path.join(opt['path']['models'], f"{delete_step}_G.pth")
+                if os.path.exists(delete_G_path):
+                    os.remove(delete_G_path)
+                delete_D_path = os.path.join(opt['path']['models'], f"{delete_step}_D.pth")
+                if os.path.exists(delete_D_path):
+                    os.remove(delete_D_path)
+                delete_D2_path = os.path.join(opt['path']['models'], f"{delete_step}_D2.pth")
+                if os.path.exists(delete_D2_path):
+                    os.remove(delete_D2_path)
+                delete_state_path = os.path.join(opt['path']['training_state'], f"{delete_step}.state")
+                if os.path.exists(delete_state_path):
+                    os.remove(delete_state_path)
 
     logger.info('Saving the final model.')
     model.save('latest')
