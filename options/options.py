@@ -3,6 +3,7 @@ import os.path as osp
 import logging
 from collections import OrderedDict
 import json
+from datetime import datetime
 
 
 def parse(opt_path, is_train=True):
@@ -43,7 +44,7 @@ def parse(opt_path, is_train=True):
         if path and key in opt['path']:
             opt['path'][key] = os.path.expanduser(path)
     if is_train:
-        experiments_root = os.path.join(opt['path']['root'], 'experiments', opt['name'])
+        experiments_root = os.path.join(opt['path']['root'], 'experiments', opt['name'], datetime.now().strftime('%y%m%d-%H%M%S'))
         opt['path']['experiments_root'] = experiments_root
         opt['path']['models'] = os.path.join(experiments_root, 'models')
         opt['path']['training_state'] = os.path.join(experiments_root, 'training_state')
